@@ -1,0 +1,394 @@
+
+#include "Drebar_sniffer.h"
+
+#define DeviceID   2023001V1
+
+TaskHandle_t GPS;
+
+TaskHandle_t IMU;
+
+//TaskHandle_t SYSTEM_TIME;
+
+//TaskHandle_t SERVER;
+
+
+void setup() {
+  led_init();
+  SerialMon.begin(115200);
+  pinMode(VOUT,OUTPUT);
+  digitalWrite(VOUT,LOW);
+  delay(1000);
+  
+/*====================Initialize LTE MODULE ===========================*/
+  modem.setBaud(115200);
+  SerialAT.begin(115200,SERIAL_8N1,LTE_RX,LTE_TX);
+  //modem.init();
+  //DBG("INitializing Modem...");
+//  if (!modem.init()){
+//    DBG("Failed to restart");
+//    return;
+//  }
+  delay(1000);
+
+  
+  //SerialMon.print("Waiting for network...");
+  
+//  if (!modem.waitForNetwork()) {
+//    SerialMon.println(" fail");
+//    delay(10000);
+//    return;
+//  
+//  }
+  //DBG(" success");
+  modem.enableGPS(); //Require to enable GPS data
+//  delay(1000);
+  //modem.sendAT(GF("+CGNSSINFO=0"));
+//  //modem.gprsConnect(apn,gprsUser,gprsPass); ///Connect to network
+//  delay(1000);
+//  modem.NTPServerSync("my.pool.ntp.org",20); //Connect to ntpserver
+//  delay(1000);
+/*HTTPS FUNCTION*/
+
+//  secure_layer.setCACert(root_ca); //Uncomment this line for https 
+  delay(1000);
+/*====================Initialize IMU MODULE ===========================*/
+  if (!bno.begin())
+  {
+    DBG("Ooops, no BNO055 detected ... Check your wiring or I2C ADDR!");
+    while(1);
+  }
+  
+/*====================Initialize CAN MODULE ===========================*/ 
+  //led_init();
+  led_off(GREEN);
+  led_off(YELLOW);
+  delay(1000);
+  CAN0.setListenOnlyMode(true);
+  if( ! CAN0.begin(canSpeed)) { 
+    led_off(GREEN);
+    DBG("Init Failed");   
+    while (1);
+  }else {
+  delay(10000);
+  digitalWrite(VOUT,HIGH);
+  CAN0.watchFor(); 
+  CAN0.setCallback(0, callback);
+  }
+  
+/*=======================Initialize TASK ===============================  
+ *USE THIS SECTION IF WANT TO USE RTOS BASED TASK EXECUTION
+ *======================================================================*/
+/*====================Initialize TASK FOR GPS/GNSS ===========================*/
+  ////create a task that will be executed in the Task1code() function, with priority 1 and executed on core 0
+  // xTaskCreatePinnedToCore(
+  //                   LTE_GPS,   /* Task function. */
+  //                   "GPS",     /* name of task. */
+  //                   10000,       /* Stack size of task */
+  //                   NULL,        /* parameter of the task */
+  //                   1,           /* priority of the task */
+  //                   &GPS,      /* Task handle to keep track of created task */
+  //                   0);          /* pin task to core 0 */                  
+  // delay(1000); 
+/*====================Initialize TASK FOR IMU ===========================*/
+//  create a task that will be executed in the Task2code() function, with priority 1 and executed on core 1
+  // xTaskCreatePinnedToCore(
+  //                   BNO,   /* Task function. */
+  //                   "imu",     /* name of task. */
+  //                   2000,       /* Stack size of task */
+  //                   NULL,        /* parameter of the task */
+  //                   1,           /* priority of the task */
+  //                   &IMU,      /* Task handle to keep track of created task */
+  //                   1);          /* pin task to core 1 */
+  // delay(BNO055_SAMPLERATE_DELAY_MS); 
+///*====================Initialize TASK FOR HTTP/HTTPS ===========================*/
+//  xTaskCreatePinnedToCore(
+//                    server_creation,
+//                    "SERVER",
+//                    10000,
+//                    NULL,
+//                    3,
+//                    &SERVER,
+//                    1);
+//    delay(100);
+
+
+
+/*====================Initialize TASK FOR SYSTEM TIME ===========================*/
+//  xTaskCreatePinnedToCore(
+//                    sys_time,
+//                    "SYSTEM_TIME",
+//                    3000,
+//                    NULL,
+//                    2,
+//                    &SYSTEM_TIME,
+//                    0);
+//    delay(1000);
+  
+}
+/*===============================================================================================
+ * LTE_GPS FUNCTION
+ *===============================================================================================*/
+// void LTE_GPS( void * pvParameters){
+
+//   for(;;){
+      
+//     if (modem.getGPS(&lat2, &lon2, &speed2, &alt2, &vsat2, &usat2, &accuracy2,
+//                      &year2, &month2, &day2, &hour2, &min2, &sec2)) {
+//       led_on(RED);
+//       DBG("Latitude:", String(0+lat2, 8), "\tLongitude:", String(0+lon2, 8));
+//       DBG("Speed:", 0+speed2, "\tAltitude:", 0+alt2);
+//       DBG("Visible Satellites:", 0+vsat2, "\tUsed Satellites:", 0+usat2);
+//       DBG("Accuracy:", 0+accuracy2);
+//       DBG("Year:", 0+year2, "\tMonth:", 0+month2, "\tDay:", 0+day2);
+//       DBG("Hour:", 0+hour2, "\tMinute:", 0+min2, "\tSecond:", 0+sec2);
+//       led_on(RED);
+//       delay(500);
+//       led_off(RED);
+
+//   }
+// }
+// }
+
+/*===============================================================================================
+ * BNO055 IMU FUNCTION
+ *===============================================================================================*/
+
+// void BNO(void * pvParameters){
+
+//   float accel_x,accel_y,accel_z,gyro_x,gyro_y,gyro_z;
+//   for(;;){
+//     imu::Vector<3> gyroscope = bno.getVector(Adafruit_BNO055::VECTOR_GYROSCOPE);
+//     imu::Vector<3> accelerometer=bno.getVector(Adafruit_BNO055::VECTOR_ACCELEROMETER);
+//     accel_x=accelerometer.x();
+//     accel_y=accelerometer.y();
+//     accel_z=accelerometer.z();
+//     gyro_x=gyroscope.x();
+//     gyro_y=gyroscope.y();
+//     gyro_z=gyroscope.z();
+//     DBG("accelx:",accel_x, "\taccely:",accel_y, "\taccelz:",accel_z);
+//     led_on(YELLOW);
+    
+//     delay(BNO055_SAMPLERATE_DELAY_MS);
+//     led_off(YELLOW);
+    
+//   }
+// }
+
+
+/*===============================================================================================
+ * CAN BUS FUNCTION
+ *===============================================================================================*/
+
+void callback(CAN_FRAME *message) {
+  
+  printFrame(*message);
+  led_on(GREEN);
+  delay(20);
+  
+}
+
+void printFrame(CAN_FRAME &message) {
+ 
+  Serial.print(message.id,HEX);
+  Serial.print(',');
+  Serial.print(message.rtr);
+  Serial.print(',');
+  Serial.print(message.extended);
+  Serial.print(',');
+  Serial.print(message.length,DEC);
+  Serial.print(',');
+  for(int i = 0;i < message.length; i++) {
+    
+    if (message.data.uint8[i] <= 0xF ) {
+      Serial.print("0");
+    }
+    Serial.print(message.data.uint8[i],HEX);
+  }
+  Serial.print('\n');
+}
+
+/*===============================================================================================
+ * TIME FUNCTION
+ *===============================================================================================*/
+//void sys_time(void * pvParameters){
+////
+//for(;;){
+////    modem.NTPServerSync("my.pool.ntp.org",20);
+//      modem.getNetworkTime(&year4, &month4, &day4, &hour4, &minute4,
+//                       &second4, &timezone);
+//    DBG("DATE:",day4,month4,year4);
+//    DBG("TIME:",hour4, minute4, second4);
+//    DBG("TIMEZONE:",timezone);
+////    //Serial.println(rtc.getTime("%A, %B %d %Y %H:%M:%S")); 
+////  
+//    delay(1000); 
+//  }
+//}
+
+
+/*===============================================================================================
+ * HTTP/HTTPS FUNCTION
+ *===============================================================================================*/
+
+//void server_creation(void * pvParameters){
+//
+//  for(;;){
+//   modem.gprsConnect(apn,gprsUser,gprsPass);
+//  SerialMon.print("Connecting to ");
+//  SerialMon.println(server);
+//  if (!client.connect(server, port)) {
+//    SerialMon.println(" fail");
+//    delay(10000);
+//    return;
+//  }
+//  SerialMon.println(" success");
+//  
+//  // Make a HTTP GET request:
+//  SerialMon.println("Performing HTTP GET request...");
+//  client.print(String("GET ") + resource + " HTTP/1.1\r\n");
+//  client.print(String("Host: ") + server + "\r\n");
+//  //client.print("Connection: close\r\n\r\n");
+//  client.println();
+//
+//  uint32_t timeout = millis();
+//  while (client.connected() && millis() - timeout < 10000L) {
+//    // Print available data
+//    while (client.available()) {
+//      char c = client.read();
+//      SerialMon.print(c);
+//      timeout = millis();
+//    }
+//  }
+
+/*==========================================================================
+ * HTTPS EXAMPLE FOR POST DATA TO SERVER *for more detailed example please refer to 
+ * https://github.com/govorox/SSLClient/blob/master/examples/Esp32/https_gsm_SIM7600/https_post_sim7600/https_post_sim7600.ino
+ * https://dogcomp.medium.com/send-https-request-from-sim-7600x-lte-module-4f76be19e900
+ *==========================================================================*/
+//    if (!modem.isGprsConnected()) {
+//        DBG("... not connected");
+//    } else {
+//        DBG("Connecting to ", server);
+//        // Make a HTTPS POST request:
+//        Serial.println("Making POST request securely");
+//        String contentType = "Content-Type: application/json";
+//        String postData = "{\"time\": \""+ time + "\", \"temp\": \"" + temp + "\"}";        
+//        client.post(resource, contentType, postData);
+//        int status_code = client.responseStatusCode();
+//        String response = client.responseBody();
+//        
+//        Serial.print("Status code: ");
+//        Serial.println(status_code);
+//        Serial.print("Response: ");
+//        Serial.println(response);
+//
+//        client.stop();
+//  }
+
+//}
+
+
+
+
+/*=======================Initialize TASK ===============================  
+ *USE THIS SECTION IF WANT TO USE TIME BASED TASK EXECUTION 
+ *NOTE: VOID LOOP RUNS IN CORE 1
+ *======================================================================*/
+void loop() {
+ uint32_t t=millis();
+
+ // if ((t-tTime[0]) >= (1000 / TIME_PUBLISH_FREQUENCY))
+ // {
+ //   modem.getNetworkTime(&year4, &month4, &day4, &hour4, &minute4,
+ //                        &second4, &timezone);
+ //   DBG("DATE:",day4,month4,year4);
+ //   DBG("TIME:",hour4, minute4, second4);
+ //   DBG("TIMEZONE:",timezone);
+
+ //   tTime[0] = t;
+   
+ // }
+ 
+ if ((t-tTime[2]) >= (1000 / GPS_PUBLISH_FREQUENCY))
+ {
+   
+   if (modem.getGPS(&lat2, &lon2, &speed2, &alt2, &vsat2, &usat2, &accuracy2,
+                    &year2, &month2, &day2, &hour2, &min2, &sec2)) {
+   DBG("Latitude:", String(lat2, 8), "\tLongitude:", String(lon2, 8));
+   DBG("Speed:", speed2, "\tAltitude:", 0+alt2);
+   DBG("Visible Satellites:", vsat2, "\tUsed Satellites:", usat2);
+   DBG("Accuracy:", accuracy2);
+   DBG("Year:", year2, "\tMonth:", month2, "\tDay:", day2);
+   DBG("Hour:", hour2, "\tMinute:", min2, "\tSecond:", sec2);
+   }
+   tTime[2] = t;
+ }
+ 
+ if ((t-tTime[1]) >= (1000 / IMU_PUBLISH_FREQUENCY))
+ {
+   float accel_x,accel_y,accel_z,gyro_x,gyro_y,gyro_z;
+   imu::Vector<3> gyroscope = bno.getVector(Adafruit_BNO055::VECTOR_GYROSCOPE);
+   imu::Vector<3> accelerometer=bno.getVector(Adafruit_BNO055::VECTOR_ACCELEROMETER);
+   accel_x=accelerometer.x();
+   accel_y=accelerometer.y();
+   accel_z=accelerometer.z();
+   gyro_x=gyroscope.x();
+   gyro_y=gyroscope.y();
+   gyro_z=gyroscope.z();
+   DBG("accelx:",accel_x, "\taccely:",accel_y, "\taccelz:",accel_z);
+   DBG("gyrox:",gyro_x, "\tgyroy:",gyro_y, "\tgyroz:",gyro_z);
+   delay(BNO055_SAMPLERATE_DELAY_MS);
+
+   tTime[1] = t;
+   
+ }
+   
+ // SerialMon.print("Waiting for network...");
+ // if (!modem.waitForNetwork()) {
+ //   SerialMon.println(" fail");
+ //   delay(10000);
+ //   return;
+ // }
+ // SerialMon.println(" success");
+
+ //  if (modem.isNetworkConnected()) { SerialMon.println("Network connected"); }
+
+ //  GPRS connection parameters are usually set after network registration
+ // SerialMon.print(F("Connecting to "));
+ // SerialMon.print(apn);
+ // if (!modem.gprsConnect(apn, gprsUser, gprsPass)) {
+ //   SerialMon.println(" fail");
+ //   delay(10000);
+ //   return;
+ // }
+ // SerialMon.println(" success");
+
+ // if (modem.isGprsConnected()) { SerialMon.println("GPRS connected"); }
+
+ // modem.gprsConnect(apn,gprsUser,gprsPass);
+ // SerialMon.print("Connecting to ");
+ // SerialMon.println(server);
+ // if (!client.connect(server, port)) {
+ //   SerialMon.println(" fail");
+ //   delay(10000);
+ //   return;
+ // }
+ // SerialMon.println(" success");
+ 
+ // // Make a HTTP GET request:
+ // SerialMon.println("Performing HTTP GET request...");
+ // client.print(String("GET ") + resource + " HTTP/1.1\r\n");
+ // client.print(String("Host: ") + server + "\r\n");
+ // //client.print("Connection: close\r\n\r\n");
+ // client.println();
+
+ // uint32_t timeout = millis();
+ // while (client.connected() && millis() - timeout < 10000L) {
+ //   // Print available data
+ //   while (client.available()) {
+ //     char c = client.read();
+ //     SerialMon.print(c);
+ //     timeout = millis();
+ //   }
+ // }
+}
